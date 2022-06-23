@@ -45,12 +45,23 @@ static void FreeThread(Thread* t);
 
 void main(int args, char** argv)
 {
-    ???
+    Thread* main_thread=AllocateThread();
+    threadList=main_thread;
+    currentThread=main_thread;
+    ThreadMain();
+    TreadExit();
+    FreeThread(main_thread);
 }
 
 int ThreadCreate(ThreadProc proc, int arg)
 {
-    ???
+    Thread *child=AllocateThread();
+    child->stack_top = (char*)malloc(STACK_SIZE);
+    Thread* search;
+    for(search=threadList;search->next!=NULL;search=search->next){
+    }
+    search->next=child;
+    return child->thread_id;
 }
 
 static void LinkThread(Thread* t)
@@ -77,7 +88,12 @@ static void ThreadStart(int proc, int arg)
 */
 void ThreadYield()
 {
-    ???
+    Thread* search;
+    for(search=threadList;search->next!=NULL;search=search->next){
+        if(search->status==RUNNING){
+            break;
+        }
+    }
 }
 
 /*
@@ -87,7 +103,27 @@ void ThreadYield()
 */
 void ThreadExit()
 {
-    ???
+    static Thread dummy;
+    Thread* cur = currentThread;
+    if (cur->thread_id==1)
+        cur->status = FINISH;
+    else {
+        //threadList が指すリスト構造から取り除く。
+        Thread *search;
+        for(search=threadList;search->next!=NULL;search=search->next){
+            if(search->next==cur){
+                search->next=cur->next;
+                break;
+            }
+        }
+        dummy.status = FINISH;
+        dummy.stack_top = NULL;    /* 使用不可 */
+        currentThread = &dummy;
+        free(cur->stack_top);
+        free(cur);
+    }
+
+    ThreadYield();
 }
 
 static Thread* AllocateThread()
