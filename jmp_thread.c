@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <setjmp.h>
 #include "thread.h"
 
 #define DEBUG(s)	puts(s)
@@ -24,6 +25,7 @@ typedef struct _Thread {
     int			context[CONTEXT_SIZE];
     char*		stack_top;	/* NULL if this is main() thread */
     int			status;
+    jmp_buf jmp_context;
 } Thread;
 
 #define RUNNING		0
@@ -57,11 +59,12 @@ int ThreadCreate(ThreadProc proc, int arg)
 {
     Thread *child=AllocateThread();
     child->stack_top = (char*)malloc(STACK_SIZE);
-    _MakeThread(child->context, child->stack_top + STACK_SIZE,ThreadStart, (int)proc, arg);
+    //_MakeThread(child->context, child->stack_top + STACK_SIZE,ThreadStart, (int)proc, arg);
     Thread* search;
     for(search=threadList;search->next!=NULL;search=search->next){
     }
     search->next=child;
+    TreadStart(proc,arg);
     return child->thread_id;
 }
 
@@ -100,7 +103,9 @@ void ThreadYield()
     if(find==1){
         Thread* cur = currentThread;
         currentThread = search;
-        _ContextSwitch(cur->context, search->context);
+        setjmp(cur->jmp_context);
+        longjmp(search->jmp_context,2);
+        //_ContextSwitch(cur->context, t->context);
     }
     else if(currentThread->thread_id==1&&currentThread->status==FINISH){
 
