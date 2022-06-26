@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <stdint.h>
 #include <sys/time.h>
 #include <setjmp.h>
 #include "thread.h"
@@ -42,7 +43,7 @@ int _TestAndSet(int* lock);
 
 void ThreadMain();
 static void LinkThread(Thread* t);
-static void ThreadStart(int proc, int arg,Thread* child);
+static void ThreadStart(void* proc, int arg,Thread* child);
 static Thread* AllocateThread();
 static void FreeThread(Thread* t);
 
@@ -58,15 +59,13 @@ void main(int args, char** argv)
 
 int ThreadCreate(ThreadProc proc, int arg)
 {
+    intptr_t empty[1024];
     Thread *child=AllocateThread();
-    child->stack_top = (char*)alloca(STACK_SIZE);
-    //_MakeThread(child->context, child->stack_top + STACK_SIZE,ThreadStart, (int)proc, arg);
     Thread* search;
     for(search=threadList;search->next!=NULL;search=search->next){
     }
     search->next=child;
-    //int empty[1024];
-    ThreadStart((int)proc,arg,child);
+    ThreadStart(proc,arg,child);
     return child->thread_id;
 }
 
@@ -82,15 +81,21 @@ static void LinkThread(Thread* t)
 /*
   ThreadStart() is a procedure that threads first invoke.
 */
-static void ThreadStart(int proc, int arg, Thread *child)
+static void ThreadStart(void* proc, int arg, Thread *child)
 {
+    //intptr_t empty[1024];
     ThreadProc ptr = (ThreadProc)proc;
+    printf("thread_init : id=%d\n",child->thread_id);
     int result=setjmp(child->jmp_context);
     if(result==0){
       return;
     }
+    else{
+      printf("func start : id=%d\n",child->thread_id);
+    }
     (*ptr)(arg);
     ThreadExit();
+    return;
 }
 
 /*
@@ -100,8 +105,9 @@ void ThreadYield()
 {
     Thread* search;
     int find=0;
+    int current_id=currentThread->thread_id;
     for(search=threadList;search!=NULL;search=search->next){
-        if(search->status==RUNNING){
+        if(search->status==RUNNING&&current_id!=search->thread_id){
             find=1;
             break;
         }
@@ -109,8 +115,11 @@ void ThreadYield()
     if(find==1){
         Thread* cur = currentThread;
         currentThread = search;
-        setjmp(cur->jmp_context);
-        longjmp(search->jmp_context,2);
+        printf("old tid=%d , new tid=%d\n",cur->thread_id,currentThread->thread_id);
+        int result=setjmp(cur->jmp_context);
+        if(result==0){
+          longjmp(search->jmp_context,2);
+        }
         //_ContextSwitch(cur->context, t->context);
     }
     else if(currentThread->thread_id==1&&currentThread->status==FINISH){
@@ -128,16 +137,24 @@ void ThreadExit()
 {
     static Thread dummy;
     Thread* cur = currentThread;
-    if (cur->thread_id==1)
+    printf("ThreadExit : id=%d\n",cur->thread_id);
+    if (cur->thread_id==1){
         cur->status = FINISH;
+    }
     else {
         //threadList が指すリスト構造から取り除く。
         Thread *search;
+        int i=0;
         for(search=threadList;search->next!=NULL;search=search->next){
+            if(search==cur&&i==0){
+              threadList=cur->next;
+              break;
+            }
             if(search->next==cur){
                 search->next=cur->next;
                 break;
             }
+            i++;
         }
         dummy.status = FINISH;
         dummy.stack_top = NULL;    /* 使用不可 */
@@ -145,7 +162,6 @@ void ThreadExit()
         //free(cur->stack_top);
         free(cur);
     }
-
     ThreadYield();
 }
 
@@ -155,8 +171,8 @@ static Thread* AllocateThread()
     Thread* t;
 
     if ((t = (Thread*)malloc(sizeof(Thread))) == NULL) {
-	DEBUG("*** error: fail to allocate a thread");
-	exit(1);	/* error: no memory */
+	     DEBUG("*** error: fail to allocate a thread");
+	      exit(1);	/* error: no memory */
     }
 
     t->next = NULL;
@@ -170,4 +186,44 @@ static void FreeThread(Thread* t)
 {
     //free(t->stack_top);
     free(t);
+}
+
+
+void f2(int i)
+{
+    for(int k=0;k<100000000;k++){
+      if(k%40000000==0){
+        printf("f2:thread %d running:k=%d\n ",i,k);
+      }
+      if(k%70000000==0){
+        ThreadYield();
+      }
+    }
+    printf("f2:thread (i=%d) finished.\n", i);
+}
+
+void f(int i)
+{
+    for(int k=0;k<100000000;k++){
+      if(k%40000000==0){
+        printf("thread %d running:k=%d\n ",i,k);
+      }
+      if(k%70000000==0){
+        //ThreadYield();
+      }
+    }
+    printf("thread (i=%d) finished.\n", i);
+}
+
+void ThreadMain()
+{
+    int t1, t2;
+
+    t1 = ThreadCreate(f2, 2);
+    printf("create a new thread (i=%d) [id=%d]\n", 2, t1);
+    ThreadYield();
+    //t2 = ThreadCreate(f, 3);
+    //printf("create a new thread (i=%d) [id=%d]\n", 3, t2);
+    //ThreadYield();
+    printf("main thread finished.\n");
 }

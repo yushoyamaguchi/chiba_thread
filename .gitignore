@@ -1,0 +1,5 @@
+core
+.gdb*
+test1
+jmp_thread2
+peda*

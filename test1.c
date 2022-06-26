@@ -3,6 +3,11 @@
 
 void f(int i)
 {
+    for(int k=0;k<100000000;k++){
+      if(k%40000000==0){
+        printf("thread %d running\n ",i);
+      }
+    }
     printf("thread (i=%d) finished.\n", i);
 }
 
