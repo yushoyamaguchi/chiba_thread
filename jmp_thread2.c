@@ -221,9 +221,8 @@ void ThreadMain()
 
     t1 = ThreadCreate(f2, 2);
     printf("create a new thread (i=%d) [id=%d]\n", 2, t1);
+    t2 = ThreadCreate(f, 3);
+    printf("create a new thread (i=%d) [id=%d]\n", 3, t2);
     ThreadYield();
-    //t2 = ThreadCreate(f, 3);
-    //printf("create a new thread (i=%d) [id=%d]\n", 3, t2);
-    //ThreadYield();
     printf("main thread finished.\n");
 }
