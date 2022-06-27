@@ -59,8 +59,9 @@ void main(int args, char** argv)
 
 int ThreadCreate(ThreadProc proc, int arg)
 {
-    intptr_t empty[1024];
+    char* emtpy=alloca(STACK_SIZE);
     Thread *child=AllocateThread();
+    //printf("create : jump_buf address=%p\n",child->jmp_context);
     Thread* search;
     for(search=threadList;search->next!=NULL;search=search->next){
     }
@@ -86,6 +87,7 @@ static void ThreadStart(void* proc, int arg, Thread *child)
     //intptr_t empty[1024];
     ThreadProc ptr = (ThreadProc)proc;
     printf("thread_init : id=%d\n",child->thread_id);
+    printf("setjmp : jump_buf address=%p\n",child->jmp_context);
     int result=setjmp(child->jmp_context);
     if(result==0){
       return;
@@ -116,8 +118,10 @@ void ThreadYield()
         Thread* cur = currentThread;
         currentThread = search;
         printf("old tid=%d , new tid=%d\n",cur->thread_id,currentThread->thread_id);
+        printf("setjmp : jump_buf address=%p\n",cur->jmp_context);
         int result=setjmp(cur->jmp_context);
         if(result==0){
+          printf("longjmp : jump_buf address=%p\n",search->jmp_context);
           longjmp(search->jmp_context,2);
         }
         //_ContextSwitch(cur->context, t->context);
@@ -179,6 +183,7 @@ static Thread* AllocateThread()
     t->thread_id = n++;
     t->stack_top = NULL;
     t->status = RUNNING;
+    printf("allocate %d : jump_buf address=%p\n",t->thread_id,t->jmp_context);
     return t;
 }
 
